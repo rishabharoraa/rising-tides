@@ -1,4 +1,4 @@
-*.ppm
 *.terrain
 !PearlRiverDelta.terrain
 target/
+output-images/
