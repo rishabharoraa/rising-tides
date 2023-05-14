@@ -2,15 +2,23 @@ package terrain;
 
 import color.ColorUtils;
 import color.HSL;
+import color.RGB;
+import floodfill.FloodFill;
+import point.Point2D;
+
+import javax.imageio.ImageIO;
+import java.awt.image.*;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Terrain {
     private final int height;
     private final int width;
     private final int numberOfWaterResources;
-    private final List<List<Integer>> waterSources;
+    private final List<Point2D> waterSources;
     private final List<List<Double>> grid;
 
     private double minHeight = Double.MAX_VALUE;
@@ -22,7 +30,7 @@ public class Terrain {
     public Terrain(int width,
                    int height,
                    int numberOfWaterResources,
-                   List<List<Integer>> waterSources,
+                   List<Point2D> waterSources,
                    List<List<Double>> grid
     ) throws Exception {
         // preliminary checks
@@ -34,11 +42,6 @@ public class Terrain {
                             waterSources.size()
                     )
             );
-        }
-        for(int i = 0; i < numberOfWaterResources; i++) {
-            if(waterSources.get(i).size() != 2) {
-                throw new Exception("Terrain - invalid water sources.");
-            }
         }
         if(grid.size() != height) {
             throw new Exception(
@@ -75,61 +78,119 @@ public class Terrain {
     }
 
     public void generateTerrainFile(String fileName, TerrainImageFileType fileType) throws Exception {
-        FileWriter fileWriter = new FileWriter(fileName + "." + fileType.extension);
-        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+        this.generateTerrainFile(fileName, fileType, this.grid, 0.0f);
+    }
 
+    public void generateTerrainFile(
+            String fileName,
+            TerrainImageFileType fileType,
+            List<List<Double>> grid,
+            double offset) throws Exception
+    {
         switch (fileType) {
-            case PNG -> this.generateTerrainPNG(bufferedWriter);
-            case JPEG -> this.generateTerrainJPEG(bufferedWriter);
-            case PPM -> this.generateTerrainPPM(bufferedWriter);
+            case PNG -> this.generateTerrainPNG(fileName, grid, offset);
+            case JPEG -> this.generateTerrainJPEG(fileName, grid, offset);
+            case PPM -> this.generateTerrainPPM(fileName, grid, offset);
         }
 
-        bufferedWriter.close();
     }
 
     public void generateTerrainFile(String fileName) throws Exception {
         this.generateTerrainFile(fileName, DEFAULT_TERRAIN_IMAGE_TYPE);
     }
 
-    private void generateTerrainPNG(BufferedWriter bufferedWriter) throws Exception {
+    private void generateTerrainPNG(String fileName, List<List<Double>> grid, double offset) throws Exception {
+        List<List<RGB>> pixelGrid = this.getPixelGrid(grid, offset);
+        List<Integer> rgbs = pixelGrid
+                .stream()
+                .flatMap(List::stream)
+                .map(rgb -> {
+                    int rgbCode = rgb.getR();
+                    rgbCode = (rgbCode << 8) + rgb.getG();
+                    rgbCode = (rgbCode << 8) + rgb.getB();
+                    return rgbCode;
+                })
+                .toList();
+
+        DataBuffer rgbData = new DataBufferInt(rgbs.stream().mapToInt(i->i).toArray(), rgbs.size());
+
+        BufferedImage img = new BufferedImage(
+                new DirectColorModel(24, 0xff0000, 0xff00, 0xff),
+                Raster.createPackedRaster(rgbData, this.width, this.height, this.width,
+                        new int[]{0xff0000, 0xff00, 0xff},
+                        null),
+                false,
+                null
+        );
+
+        ImageIO.write(img, "png", new File(fileName + "." + TerrainImageFileType.PNG.extension));
+    }
+
+    private void generateTerrainJPEG(String fileName, List<List<Double>> grid, double offset) throws Exception {
         throw new Exception("Method not implemented.");
     }
 
-    private void generateTerrainJPEG(BufferedWriter bufferedWriter) throws Exception {
-        throw new Exception("Method not implemented.");
+    public void floodFill(String fileName, TerrainImageFileType fileType, double targetAltitude) throws Exception {
+        List<List<Double>> newGrid = FloodFill.applyFloodFill(
+                this.grid,
+                this.waterSources.get(0),
+                (Double altitude) -> altitude < targetAltitude,
+                (Double altitude) -> altitude - targetAltitude
+        );
+        this.generateTerrainFile(fileName, fileType, newGrid, targetAltitude);
     }
 
-    private void generateTerrainPPM(BufferedWriter bufferedWriter) throws Exception {
+    private void generateTerrainPPM(String fileName, List<List<Double>> grid, double offset) throws Exception {
+        FileWriter fileWriter = new FileWriter(fileName + "." + TerrainImageFileType.PPM.extension);
+        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+
         bufferedWriter.write("P3\n");
         bufferedWriter.write(String.format("%d %d\n", this.width, this.height));
         bufferedWriter.write("255\n");
+
+        List<List<RGB>> pixelGrid = this.getPixelGrid(grid, offset);
         for(int y = 0; y < this.height; y++) {
+            for (int x = 0; x < this.width; x++) {
+                bufferedWriter.write(pixelGrid.get(y).get(x).toStringForPPM());
+                bufferedWriter.newLine();
+            }
+        }
+
+        bufferedWriter.close();
+    }
+
+    private List<List<RGB>> getPixelGrid(List<List<Double>> grid, double offset) throws Exception {
+        List<List<RGB>> pixelGrid = new ArrayList<>();
+
+        for(int y = 0; y < this.height; y++) {
+            List<RGB> currentRow = new ArrayList<>();
             for(int x = 0; x < this.width; x++) {
                 HSL hsl;
-                if(this.grid.get(y).get(x) < 0) {
+                if(grid.get(y).get(x) < 0) {
                     int lightness = ColorUtils.mapToRange(
                             0,
-                            this.maxDepth,
+                            this.maxDepth - offset,
                             50,
                             0,
-                            this.grid.get(y).get(x)
+                            grid.get(y).get(x)
                     );
                     hsl = new HSL(240, 100, lightness);
                 }
                 else {
                     int hue = ColorUtils.mapToRange(
                             this.minHeight,
-                            this.maxHeight,
+                            this.maxHeight + offset,
                             120,
                             0,
                             this.grid.get(y).get(x)
                     );
                     hsl = new HSL(hue,85,50);
                 }
-//                System.out.printf("%s -> %s%n",this.grid.get(y).get(x),hue);
-                bufferedWriter.write(hsl.toStringForPPM());
-                bufferedWriter.newLine();
+                currentRow.add(RGB.fromHSL(hsl));
             }
+            pixelGrid.add(currentRow);
         }
+
+        return pixelGrid;
     }
 }

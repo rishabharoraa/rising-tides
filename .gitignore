@@ -1,4 +1,7 @@
 *.terrain
-!PearlRiverDelta.terrain
+!terrain-files/PearlRiverDelta.terrain
+!terrain-files/VelingaraSenegal.terrain
 target/
 output-images/
+pearl-river-report/
+velingara-senegal-report/

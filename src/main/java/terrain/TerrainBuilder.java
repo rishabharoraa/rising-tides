@@ -1,5 +1,7 @@
 package terrain;
 
+import point.Point2D;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
@@ -42,14 +44,17 @@ public class TerrainBuilder {
         }
 
         // water sources location
-        List<List<Integer>> waterSources = new ArrayList<>();
+        List<Point2D> waterSources = new ArrayList<>();
         for(int i = 0; i < numberOfWaterSources; i++) {
             String waterSourcesLine = bufferedReader.readLine().trim();
             List<Integer> locationLine = Arrays.stream(waterSourcesLine.split(" "))
                     .mapToInt(Integer::parseInt)
                     .boxed()
                     .toList();
-            waterSources.add(locationLine);
+            if(locationLine.size() != 2) {
+                throw new Exception("TerrainBuilder - invalid water sources");
+            }
+            waterSources.add(new Point2D(locationLine.get(1), locationLine.get(0)));
         }
 
         // terrain grid
