@@ -174,17 +174,17 @@ public class Terrain {
                             0,
                             grid.get(y).get(x)
                     );
-                    hsl = new HSL(240, 100, lightness);
+                    hsl = new HSL(240, 65, lightness);
                 }
                 else {
                     int hue = ColorUtils.mapToRange(
                             this.minHeight,
                             this.maxHeight + offset,
-                            120,
+                            80,
                             0,
                             this.grid.get(y).get(x)
                     );
-                    hsl = new HSL(hue,85,50);
+                    hsl = new HSL(hue,65,50);
                 }
                 currentRow.add(RGB.fromHSL(hsl));
             }
