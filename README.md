@@ -7,7 +7,7 @@ Pearl River Delta, China
 ![image](./media/P.gif)
 
 Mars Craters
-![image](./media/marsCraters.png)
+![image](./media/MarsCraters.png)
 
 Mars Olympus Mons
 ![image](./media/MarsOlympusMons.png)
